@@ -1,0 +1,74 @@
+config:
+  cluster:
+    enabled: true
+    port: 6222
+    # must be 2 or higher when jetstream is enabled
+    replicas: 3
+
+    # apply to generated route URLs that connect to other pods in the StatefulSet
+    routeURLs:
+      # if both user and password are set, they will be added to route URLs
+      # and the cluster authorization block
+      user:
+      password:
+      useFQDN: true
+      k8sClusterDomain: cluster.local
+
+container:
+  image:
+    repository: nats
+    tag: 2.10.20-alpine
+    pullPolicy:
+    registry:
+  merge:
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "125m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+
+# stateful set -> pod template
+podTemplate:
+  # merge or patch the pod template
+  # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#pod-v1-core
+  merge:
+    spec:
+      tolerations:  # Add tolerations to allow the pods to run on specific nodes with taints
+        - key: "node-role.kubernetes.io/worker-staging"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+        - key: "node-role.kubernetes.io/worker"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - nats
+              topologyKey: kubernetes.io/hostname
+
+natsBox:
+  enabled: true
+  podTemplate:
+    merge:
+      spec:
+        tolerations:  # Add tolerations to allow the pods to run on specific nodes with taints
+          - key: "node-role.kubernetes.io/worker-staging"
+            operator: "Equal"
+            value: "true"
+            effect: "NoSchedule"
+          - key: "node-role.kubernetes.io/worker"
+            operator: "Equal"
+            value: "true"
+            effect: "NoSchedule"
+
+# nodeSelector:  # Use node selector to target specific nodes for NATS deployment
+#   node-role.kubernetes.io/nats: "true"

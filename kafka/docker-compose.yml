@@ -1,0 +1,216 @@
+services:
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8038:8080
+    depends_on:
+      - kafka1
+      - kafka2
+    environment:
+      AUTH_TYPE: "LOGIN_FORM"
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD: pass
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:19093
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9997
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM: PLAIN
+      KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="0GTU7f28LFrx496lMn1w5WscoEAyOZz3";'
+      KAFKA_CLUSTERS_1_NAME: secondLocal
+      KAFKA_CLUSTERS_1_BOOTSTRAPSERVERS: kafka2:29092
+      KAFKA_CLUSTERS_2_NAME: thirdLocal
+      KAFKA_CLUSTERS_2_BOOTSTRAPSERVERS: kafka3:39092
+      KAFKA_CLUSTERS_3_NAME: yandexCloud
+      KAFKA_CLUSTERS_3_BOOTSTRAPSERVERS: cloud-example.url:9091
+      KAFKA_CLUSTERS_3_PROPERTIES_SECURITY_PROTOCOL: SASL_SSL
+      KAFKA_CLUSTERS_3_PROPERTIES_SASL_MECHANISM: SCRAM-SHA-512
+      KAFKA_CLUSTERS_3_PROPERTIES_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required username="kafka-ui" password="very-sicret";
+      KAFKA_CLUSTERS_3_PROPERTIES_SSL_TRUSTSTORE_LOCATION: /etc/security/client.truststore.jks
+      KAFKA_CLUSTERS_3_PROPERTIES_SSL_TRUSTSTORE_PASSWORD: FS5k63O0uly2HNwBXp1YehbQT9nC84i7
+      KAFKA_CLUSTERS_3_PROPERTIES_PROTOCOL: SASL
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    volumes:
+      - ./config/client.truststore.jks:/etc/security/client.truststore.jks
+    networks:
+      - kafka
+  zk1:
+    image: confluentinc/cp-zookeeper:5.0.0
+    container_name: zk1
+    restart: always
+    healthcheck:
+      test: echo stat | nc localhost 22181
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    # ports: 
+    #   - "22181:22181"
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 22181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_SERVERS: zk1:22888:23888;zk2:32888:33888;zk3:42888:43888
+      ZOO_JAAS_CONF: "/opt/zookeeper/config/zookeeper_jaas.conf"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/opt/zookeeper/config/zookeeper_jaas.conf"
+    volumes:
+      - ./zk1/data:/var/lib/zookeeper/data
+      - ./zk1/log:/var/lib/zookeeper/log
+      - ./config/zookeeper_jaas.conf:/opt/zookeeper/config/zookeeper_jaas.conf
+    networks:
+      - kafka
+
+  zk2:
+    image: confluentinc/cp-zookeeper:5.0.0
+    container_name: zk2
+    restart: always
+    healthcheck:
+      test: echo stat | nc localhost 32181
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    # ports:
+    #   - "32181:32181"
+    environment:
+      ZOOKEEPER_SERVER_ID: 2
+      ZOOKEEPER_CLIENT_PORT: 32181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_SERVERS: zk1:22888:23888;zk2:32888:33888;zk3:42888:43888
+      ZOO_JAAS_CONF: "/opt/zookeeper/config/zookeeper_jaas.conf"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/opt/zookeeper/config/zookeeper_jaas.conf"
+    volumes:
+      - ./zk2/data:/var/lib/zookeeper/data
+      - ./zk2/log:/var/lib/zookeeper/log
+      - ./config/zookeeper_jaas.conf:/opt/zookeeper/config/zookeeper_jaas.conf
+    networks:
+      - kafka
+
+  zk3:
+    image: confluentinc/cp-zookeeper:5.0.0
+    container_name: zk3
+    restart: always
+    healthcheck:
+      test: echo stat | nc localhost 42181
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    # ports: 
+    #   - "42181:42181"
+    environment:
+      ZOOKEEPER_SERVER_ID: 3
+      ZOOKEEPER_CLIENT_PORT: 42181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_SERVERS: zk1:22888:23888;zk2:32888:33888;zk3:42888:43888
+      ZOO_JAAS_CONF: "/opt/zookeeper/config/zookeeper_jaas.conf"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/opt/zookeeper/config/zookeeper_jaas.conf"
+    volumes:
+      - ./zk3/data:/var/lib/zookeeper/data
+      - ./zk3/log:/var/lib/zookeeper/log
+      - ./config/zookeeper_jaas.conf:/opt/zookeeper/config/zookeeper_jaas.conf
+    networks:
+      - kafka
+
+  kafka1:
+    image: confluentinc/cp-kafka:7.2.1
+    container_name: kafka1
+    restart: always
+    healthcheck:
+      test: ps augwwx | egrep [S]upportedKafka
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zk1:22181,zk2:32181,zk3:42181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:19092,SASL_PLAINTEXT://kafka1:19093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_OPTS: -Djava.security.auth.login.config=/var/lib/kafka/config/kafka_server_jaas.conf
+    volumes:
+      - ./kafka1:/var/lib/kafka/data
+      - ./config/kafka_server_jaas.conf:/var/lib/kafka/config/kafka_server_jaas.conf
+    networks:
+      - kafka
+
+  kafka2:
+    image: confluentinc/cp-kafka:7.2.1
+    container_name: kafka2
+    restart: always
+    healthcheck:
+      test: ps augwwx | egrep [S]upportedKafka
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zk1:22181,zk2:32181,zk3:42181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:29092,SASL_PLAINTEXT://kafka2:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_OPTS: -Djava.security.auth.login.config=/var/lib/kafka/config/kafka_server_jaas.conf
+    volumes:
+      - ./kafka2/data:/var/lib/kafka/data
+      - ./config/kafka_server_jaas.conf:/var/lib/kafka/config/kafka_server_jaas.conf
+    networks:
+      - kafka
+
+  kafka3:
+    image: confluentinc/cp-kafka:7.2.1
+    container_name: kafka3
+    restart: always
+    healthcheck:
+      test: ps augwwx | egrep [S]upportedKafka
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zk1:22181,zk2:32181,zk3:42181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:39092,SASL_PLAINTEXT://kafka3:39093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_OPTS: -Djava.security.auth.login.config=/var/lib/kafka/config/kafka_server_jaas.conf
+    volumes:
+      - ./kafka3/data:/var/lib/kafka/data
+      - ./config/kafka_server_jaas.conf:/var/lib/kafka/config/kafka_server_jaas.conf
+    networks:
+      - kafka
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter
+    container_name: kafka-exporter
+    command: >
+      --kafka.server=kafka1:19093
+      --sasl.enabled
+      --sasl.username=admin
+      --sasl.password=0GTU7f28LFrx496lMn1w5WscoEAyOZz3
+      --sasl.mechanism=PLAIN
+    # --kafka.server=cloud-example.url:9091
+    # --sasl.enabled
+    # --sasl.username=kafka-ui
+    # --sasl.password=very-sicret
+    # --sasl.mechanism=SCRAM-SHA512
+    # --tls.enabled
+    # --tls.insecure-skip-tls-verify
+    ports:
+      - 9308:9308
+    networks:
+      - kafka 
+
+networks:
+  kafka:
+    name: kafka
